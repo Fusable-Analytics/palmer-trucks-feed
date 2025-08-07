@@ -5,6 +5,9 @@ on:
     - cron: '0 * * * *'    # ⏰ Every hour (UTC)
   workflow_dispatch:       # ✅ Allow manual run button
 
+permissions:
+  contents: write  
+
 jobs:
   build:
     runs-on: ubuntu-latest
