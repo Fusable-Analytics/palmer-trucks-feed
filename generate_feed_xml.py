@@ -153,6 +153,7 @@ for item in data:
     ET.SubElement(listing, "fuel_type").text = fuel_type
     ET.SubElement(listing, "transmission").text = transmission
     ET.SubElement(listing, "vin").text = vin
+    ET.SubElement(listing, "trim").text = category
 
     mileage_elem = ET.SubElement(listing, "mileage")
     ET.SubElement(mileage_elem, "unit").text = "MI"
@@ -165,11 +166,6 @@ for item in data:
     ET.SubElement(address, "component", name="region").text = addr_parts[2]
     ET.SubElement(address, "component", name="postal_code").text = addr_parts[3]
     ET.SubElement(address, "component", name="country").text = addr_parts[4]
-
-    # Availability radius (default to 50 MI)
-    availability_radius = ET.SubElement(listing, "availability_radius")
-    ET.SubElement(availability_radius, "value").text = "50"
-    ET.SubElement(availability_radius, "unit").text = "MI"
 
 # --- Save XML ---
 ET.ElementTree(root).write("facebook_catalog_feed.xml", encoding="utf-8", xml_declaration=True)
