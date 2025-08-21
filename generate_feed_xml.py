@@ -168,7 +168,9 @@ for item in data:
     ET.SubElement(address, "component", name="country").text = addr_parts[4]
 
 # --- Save XML ---
-ET.ElementTree(root).write("facebook_catalog_feed.xml", encoding="utf-8", xml_declaration=True)
-print("✅ XML feed created: facebook_catalog_feed.xml")
+OUT_CANDIDATE = "facebook_catalog_feed_new.xml"  # candidate, not live
+ET.ElementTree(root).write(OUT_CANDIDATE, encoding="utf-8", xml_declaration=True)
+print(f"✅ XML feed created (candidate): {OUT_CANDIDATE}")
+
 if skipped_count:
     print(f"⚠️ {skipped_count} listings were skipped due to missing location or VIN.")
