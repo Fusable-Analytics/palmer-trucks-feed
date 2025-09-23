@@ -2,7 +2,7 @@ name: Update Facebook Catalog Feed
 
 on:
   schedule:
-    - cron: '0 * * * *'   # ⏰ every hour on the hour (UTC)
+    - cron: '5 * * * *'   # ⏰ every hour at :05 UTC
   workflow_dispatch:       # manual run button
 
 jobs:
