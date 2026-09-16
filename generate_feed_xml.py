@@ -20,8 +20,10 @@ response = requests.get(url, headers=headers, verify=False)
 print(f"📥 API response status: {response.status_code}")
 
 if response.status_code != 200:
-    print(f"❌ Failed to fetch data. Exiting.")
-    exit()
+    print("❌ Failed to fetch data.")
+    print(f"📄 API response body: {response.text[:2000]}")
+    print("🛑 Exiting without creating candidate feed.")
+    raise SystemExit(1)
 else:
     print("✅ API fetch succeeded.")
 
