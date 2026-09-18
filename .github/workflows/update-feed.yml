@@ -1,4 +1,4 @@
-name: Update Facebook Catalog Feed
+name: Update Palmer Inventory Feeds
 
 on:
   schedule:
@@ -27,37 +27,104 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests certifi
 
-      - name: Generate candidate XML
+      # ----------------------------------------------------
+      # Meta / Facebook Catalog Feed
+      # ----------------------------------------------------
+
+      - name: Generate Meta candidate XML
         run: |
           python generate_feed_xml.py
 
-      - name: Validate candidate XML exists and is non-empty
+      - name: Validate Meta candidate XML exists and is non-empty
         run: |
           test -s facebook_catalog_feed_new.xml
 
-      - name: Basic XML sanity check
+      - name: Basic Meta XML sanity check
         run: |
           set -e
           # require at least one <listing> and required tags
           grep -q "<listing>" facebook_catalog_feed_new.xml
           grep -q "<vehicle_id>" facebook_catalog_feed_new.xml
           grep -q "<vin>" facebook_catalog_feed_new.xml
-          echo "Candidate XML looks sane."
+          echo "Meta candidate XML looks sane."
 
-      - name: Promote candidate -> live (atomic)
+      # ----------------------------------------------------
+      # Google Ads Business Data Feed
+      # ----------------------------------------------------
+
+      - name: Generate Google Ads candidate CSV
+        run: |
+          python generate_google_feed.py
+
+      - name: Validate Google Ads candidate CSV exists and is non-empty
+        run: |
+          test -s google_ads_feed_new.csv
+
+      - name: Basic Google Ads CSV sanity check
+        run: |
+          python - <<'PY'
+          import csv
+
+          path = "google_ads_feed_new.csv"
+
+          with open(path, newline="", encoding="utf-8-sig") as f:
+              reader = csv.DictReader(f)
+              rows = list(reader)
+
+          required_columns = {
+              "ID",
+              "Final URL",
+              "Item title",
+              "Item category",
+              "Status"
+          }
+
+          missing = required_columns - set(reader.fieldnames or [])
+
+          if missing:
+              raise SystemExit(
+                  f"Missing required columns: {sorted(missing)}"
+              )
+
+          if not rows:
+              raise SystemExit(
+                  "Google Ads candidate contains no inventory rows."
+              )
+
+          if any(not row["ID"].strip() for row in rows):
+              raise SystemExit(
+                  "Google Ads candidate contains a blank ID."
+              )
+
+          print(
+              f"Google Ads candidate looks sane: "
+              f"{len(rows)} inventory rows."
+          )
+          PY
+
+      # ----------------------------------------------------
+      # Promote candidates only after BOTH feeds validate
+      # ----------------------------------------------------
+
+      - name: Promote candidates -> live
         run: |
           cp -f facebook_catalog_feed_new.xml facebook_catalog_feed.xml
-          echo "Promoted candidate to live."
+          cp -f google_ads_feed_new.csv google_ads_feed.csv
+          echo "Promoted Meta and Google Ads candidates to live."
 
-      - name: Commit and push if XML changed
+      # ----------------------------------------------------
+      # Commit live feeds
+      # ----------------------------------------------------
+
+      - name: Commit and push if feeds changed
         run: |
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add facebook_catalog_feed.xml
+          git add facebook_catalog_feed.xml google_ads_feed.csv
           if ! git diff --cached --quiet; then
-            git commit -m "🤖 Auto-update XML feed"
+            git commit -m "🤖 Auto-update inventory feeds"
             git push origin master
           else
-            echo "No change in live XML; nothing to commit."
+            echo "No change in live feeds; nothing to commit."
           fi
