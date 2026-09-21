@@ -1,6 +1,11 @@
 import csv
+import hashlib
+import io
+import os
+
 import requests
 import urllib3
+from PIL import Image
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -83,6 +88,81 @@ def normalize_google_description(text):
 
     return text
 
+def get_google_image(stock_number, image_url):
+    """
+    Return a Google-safe image URL.
+
+    If Palmer's primary image is already <= 6 MP, use it directly.
+    If it is larger, create/reuse a resized local copy for GitHub Pages.
+    """
+    if not image_url:
+        return ""
+
+    image_dir = "google_images"
+
+    source_hash = hashlib.sha256(
+        image_url.encode("utf-8")
+    ).hexdigest()[:12]
+
+    filename = f"{stock_number}-{source_hash}.jpg"
+    local_path = os.path.join(image_dir, filename)
+
+    # Reuse an existing resized copy.
+    if os.path.exists(local_path):
+        return (
+            "https://fusable-analytics.github.io/"
+            "palmer-trucks-feed/"
+            f"google_images/{filename}"
+        )
+
+    try:
+        response = requests.get(image_url, timeout=30)
+        response.raise_for_status()
+
+        with Image.open(io.BytesIO(response.content)) as image:
+            width, height = image.size
+
+            # Palmer image is already safe for Google.
+            if width * height <= 6_000_000:
+                return image_url
+
+            os.makedirs(image_dir, exist_ok=True)
+
+            # Resize oversized images to max 2000 px on the long edge.
+            image.thumbnail((2000, 2000))
+
+            # JPEG cannot save RGBA/P images directly.
+            if image.mode != "RGB":
+                image = image.convert("RGB")
+
+            image.save(
+                local_path,
+                "JPEG",
+                quality=85,
+                optimize=True
+            )
+
+            print(
+                f"🖼️ Resized Google image for {stock_number}: "
+                f"{width}x{height} -> "
+                f"{image.width}x{image.height}"
+            )
+
+            return (
+                "https://fusable-analytics.github.io/"
+                "palmer-trucks-feed/"
+                f"google_images/{filename}"
+            )
+
+    except Exception as exc:
+        print(
+            f"⚠️ Image processing failed for "
+            f"{stock_number}: {exc}"
+        )
+
+        # Don't lose the listing because image processing failed.
+        return image_url
+
 
 def add_keyword(keywords, value):
     value = clean(value)
@@ -154,6 +234,7 @@ unknown_location_count = 0
 # Build Google rows
 # ---------------------------------------------------------
 
+active_google_images = set()
 for item in data:
     general = item.get("General-Details", {}) or {}
     power = item.get("Power", {}) or {}
@@ -209,7 +290,14 @@ for item in data:
     item_category = website_application or category
 
     # First image only for Google Business Data.
-    image_url = clean(image_urls[0]) if image_urls else ""
+    source_image_url = clean(image_urls[0]) if image_urls else ""
+    image_url = get_google_image(stock_number, source_image_url)
+
+    if image_url.startswith(
+        "https://fusable-analytics.github.io/"
+        "palmer-trucks-feed/google_images/"
+    ):
+        active_google_images.add(image_url.rsplit("/", 1)[-1])
 
     # Price is optional here.
     google_price = ""
@@ -326,6 +414,17 @@ for item in data:
         "Status": "Eligible"
     })
 
+# Remove cached Google images no longer used by the current feed.
+image_dir = "google_images"
+
+if os.path.isdir(image_dir):
+    for filename in os.listdir(image_dir):
+        if (
+            filename.lower().endswith(".jpg")
+            and filename not in active_google_images
+        ):
+            os.remove(os.path.join(image_dir, filename))
+            print(f"🗑️ Removed unused Google image: {filename}")
 
 # ---------------------------------------------------------
 # Write candidate CSV
