@@ -88,6 +88,19 @@ def normalize_google_description(text):
 
     return text
 
+TRUCK_ARRIVING_SOON_HASH = (
+    "1923E13DA0DAE949E66127223CD56D0F"
+    "359C809A2DCCB91C1CF765230E9EF4A3"
+)
+
+
+def is_truck_arriving_soon(path):
+    with open(path, "rb") as file:
+        file_hash = hashlib.sha256(file.read()).hexdigest().upper()
+
+    return file_hash == TRUCK_ARRIVING_SOON_HASH
+
+
 def get_google_image(stock_number, image_url):
     """
     Return a Google-safe image URL.
@@ -109,6 +122,13 @@ def get_google_image(stock_number, image_url):
 
     # Reuse an existing resized copy.
     if os.path.exists(local_path):
+        if is_truck_arriving_soon(local_path):
+            print(
+                f"🚫 Suppressing 'Truck Arriving Soon' "
+                f"placeholder for {stock_number}"
+            )
+            return ""
+
         return (
             "https://fusable-analytics.github.io/"
             "palmer-trucks-feed/"
@@ -141,7 +161,15 @@ def get_google_image(stock_number, image_url):
                 quality=85,
                 optimize=True
             )
+            if is_truck_arriving_soon(local_path):
+                os.remove(local_path)
 
+                print(
+                    f"🚫 Suppressing 'Truck Arriving Soon' "
+                    f"placeholder for {stock_number}"
+                )
+
+                return ""
             print(
                 f"🖼️ Resized Google image for {stock_number}: "
                 f"{width}x{height} -> "
