@@ -49,6 +49,41 @@ def clean(value):
     return str(value).strip()
 
 
+def normalize_google_description(text):
+    """
+    Normalize descriptions that are effectively ALL CAPS for Google Ads.
+    Normal mixed-case descriptions are returned unchanged.
+    """
+    text = clean(text)
+
+    if not text:
+        return ""
+
+    letters = [c for c in text if c.isalpha()]
+
+    if not letters:
+        return text
+
+    uppercase_ratio = sum(c.isupper() for c in letters) / len(letters)
+
+    # Only intervene when the description is overwhelmingly uppercase.
+    if uppercase_ratio >= 0.90:
+        text = text.lower()
+        text = text[:1].upper() + text[1:]
+
+        # Preserve known brands and common inventory acronyms.
+        replacements = {
+            "thermo king": "Thermo King",
+            "espar": "Espar",
+            "apu": "APU",
+        }
+
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+
+    return text
+
+
 def add_keyword(keywords, value):
     value = clean(value)
 
@@ -56,7 +91,6 @@ def add_keyword(keywords, value):
         keyword.lower() for keyword in keywords
     }:
         keywords.append(value)
-
 
 # ---------------------------------------------------------
 # Palmer location lookup
@@ -214,7 +248,7 @@ for item in data:
     # Prefer Palmer's authored description when available.
     # Otherwise construct a useful description from structured data.
     if additional_info:
-        item_description = additional_info
+        item_description = normalize_google_description(additional_info)
     else:
         description_parts = []
 
