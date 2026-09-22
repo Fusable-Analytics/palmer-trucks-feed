@@ -5,11 +5,17 @@ on:
     - cron: '5 * * * *'   # ⏰ every hour at :05 UTC
   workflow_dispatch:       # manual run button
 
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     permissions:
       contents: write  # needed so the workflow can commit/push
+
+    env:
+      PALMER_API_CLIENT_ID: ${{ secrets.PALMER_API_CLIENT_ID }}
+      PALMER_API_CLIENT_SECRET: ${{ secrets.PALMER_API_CLIENT_SECRET }}
 
     steps:
       - name: Checkout repo
